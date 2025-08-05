@@ -7,10 +7,28 @@
     <meta name="mobileoptimized" content="width">
     <title>Tenis Kulübü Rezervasyon Sistemi</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-auth-compat.js"></script>
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBUGvYnnhHokHZQ92l7fAZ0WzFa1nGMJF4",
+            authDomain: "ondo-kort-takip-deneme.firebaseapp.com",
+            projectId: "ondo-kort-takip-deneme",
+            storageBucket: "ondo-kort-takip-deneme.appspot.com", 
+            messagingSenderId: "763428349563",
+            appId: "1:763428349563:web:95e7851140045e1215a4de"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Make db available globally
+        window.db = db;
+    </script>
     <style>
         .disabled {
             opacity: 0.6;
@@ -214,13 +232,13 @@
     <script>
         // Firebase configuration
         const firebaseConfig = {
-    apiKey: "AIzaSyBUGvYnnhHokHZQ92l7fAZ0WzFa1nGMJF4",
-    authDomain: "ondo-kort-takip-deneme.firebaseapp.com",
-    projectId: "ondo-kort-takip-deneme",
-    storageBucket: "ondo-kort-takip-deneme.firebasestorage.app",
-    messagingSenderId: "763428349563",
-    appId: "1:763428349563:web:95e7851140045e1215a4de"
-  };
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
         
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
@@ -247,14 +265,19 @@
             // Tabloları oluştur
             generateTables();
             
-            // Yerel depolamadan verileri yükle
-            loadFromLocalStorage();
+            // Firebase'den verileri yükle
+            loadFromFirebase();
             
             // Her Pazar gece yarısı sıfırlama kontrolü
             checkWeeklyReset();
             
             // Event listener'ları ayarla
             setupEventListeners();
+            
+            // Manuel olarak giriş butonuna event listener ekle
+            document.getElementById('loginBtn').addEventListener('click', function() {
+                document.getElementById('loginModal').classList.remove('hidden');
+            });
         });
 
         // Tabloları oluşturma fonksiyonu
@@ -341,10 +364,7 @@
 
         // Event listener'ları ayarla
         function setupEventListeners() {
-            // Giriş butonu
-            document.getElementById('loginBtn').addEventListener('click', function() {
-                document.getElementById('loginModal').classList.remove('hidden');
-            });
+            // Giriş işlemleri için event listener'lar
             
             // Giriş iptal
             document.getElementById('cancelLogin').addEventListener('click', function() {
@@ -391,8 +411,8 @@
                     }
                 }
                 
+                await saveToFirebase();
                 generateTables();
-                saveToLocalStorage();
                 enableAdminBooking();
             });
             
@@ -417,12 +437,12 @@
                 }
                 
                 generateTables();
-                saveToLocalStorage();
+                await saveToFirebase();
                 enableAdminBooking();
             });
             
             // Haftayı sıfırla
-            document.getElementById('resetWeek').addEventListener('click', function() {
+            document.getElementById('resetWeek').addEventListener('click', async function() {
                 if(confirm('Tüm rezervasyonlar sıfırlanacak, emin misiniz?\n(Ders saatleri korunacak)')) {
                     // Sadece dolu saatleri (1) sıfırla, ders saatleri (2) koru
                     for(let day = 0; day < 7; day++) {
@@ -436,11 +456,8 @@
                         }
                     }
                     
-                    // Geçerli tarihi kaydet
-                    localStorage.setItem('lastReset', new Date().toISOString());
-                    
+                    await saveToFirebase();
                     generateTables();
-                    saveToLocalStorage();
                     enableAdminBooking();
                     alert('Haftalık rezervasyonlar sıfırlandı!');
                 }
@@ -479,7 +496,7 @@
         // Firebase'e kaydet
         async function saveToFirebase() {
             try {
-                await db.collection('reservations').doc('courtData').set(reservations);
+                await setDoc(doc(db, "reservations", "courtData"), reservations);
                 await db.collection('system').doc('lastReset').set({ 
                     timestamp: new Date().toISOString() 
                 });
@@ -491,7 +508,8 @@
         // Firebase'den yükle
         async function loadFromFirebase() {
             try {
-                const doc = await db.collection('reservations').doc('courtData').get();
+                const docRef = doc(db, "reservations", "courtData");
+                const docSnap = await getDoc(docRef);
                 if (doc.exists) {
                     reservations = doc.data();
                 }
