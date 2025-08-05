@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="handheldfriendly" content="true">
+    <meta name="mobileoptimized" content="width">
+    <title>Tenis Kulübü Rezervasyon Sistemi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-auth-compat.js"></script>
+    <style>
+        .disabled {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .empty-slot {
+            background-color: #d1fae5;
+            cursor: pointer;
+        }
+        .booked-slot {
+            background-color: #fee2e2;
+        }
+        .lesson-slot {
+            background-color: #bfdbfe;
+        }
+        .login-container {
+            background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Başlık ve Giriş Butonu -->
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-indigo-800">Tenis Kulübü Rezervasyon Sistemi</h1>
+            <button id="loginBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+                Yönetici Girişi
+            </button>
+        </div>
+
+        <!-- Giriş Modalı -->
+        <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+            <div class="login-container bg-white p-8 rounded-lg shadow-xl w-96">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Yönetici Girişi</h2>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="username">Kullanıcı Adı</label>
+                    <input type="text" id="username" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 mb-2" for="password">Şifre</label>
+                    <input type="password" id="password" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div class="flex justify-end">
+                    <button id="cancelLogin" class="mr-2 px-4 py-2 border rounded-lg">İptal</button>
+                    <button id="confirmLogin" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">Giriş Yap</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Paneli -->
+        <div id="adminPanel" class="hidden mb-8 bg-gray-100 p-6 rounded-lg">
+            <h2 class="text-xl font-bold mb-4 text-indigo-800">Yönetici Paneli</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-semibold mb-2">Ders Saati Ekle</h3>
+                    <div class="flex items-center mb-2">
+                        <select id="lessonKort" class="border p-2 rounded-lg mr-2">
+                            <option value="1">1. Kort</option>
+                            <option value="2">2. Kort</option>
+                        </select>
+                        <select id="lessonDay" class="border p-2 rounded-lg mr-2">
+                            <option value="0">Pazartesi</option>
+                            <option value="1">Salı</option>
+                            <option value="2">Çarşamba</option>
+                            <option value="3">Perşembe</option>
+                            <option value="4">Cuma</option>
+                            <option value="5">Cumartesi</option>
+                            <option value="6">Pazar</option>
+                        </select>
+                        <select id="lessonTime" class="border p-2 rounded-lg">
+                            <option value="8">08:00</option>
+                            <option value="9">09:00</option>
+                            <option value="10">10:00</option>
+                            <option value="11">11:00</option>
+                            <option value="12">12:00</option>
+                            <option value="13">13:00</option>
+                            <option value="14">14:00</option>
+                            <option value="15">15:00</option>
+                            <option value="16">16:00</option>
+                            <option value="17">17:00</option>
+                            <option value="18">18:00</option>
+                            <option value="19">19:00</option>
+                            <option value="20">20:00</option>
+                        </select>
+                    </div>
+                    <button id="addLesson" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">Ders Ekle</button>
+                </div>
+
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-semibold mb-2">Ders Saati Sil</h3>
+                    <div class="flex items-center mb-2">
+                        <select id="removeLessonKort" class="border p-2 rounded-lg mr-2">
+                            <option value="1">1. Kort</option>
+                            <option value="2">2. Kort</option>
+                        </select>
+                        <select id="removeLessonDay" class="border p-2 rounded-lg mr-2">
+                            <option value="0">Pazartesi</option>
+                            <option value="1">Salı</option>
+                            <option value="2">Çarşamba</option>
+                            <option value="3">Perşembe</option>
+                            <option value="4">Cuma</option>
+                            <option value="5">Cumartesi</option>
+                            <option value="6">Pazar</option>
+                        </select>
+                        <select id="removeLessonTime" class="border p-2 rounded-lg">
+                            <option value="8">08:00</option>
+                            <option value="9">09:00</option>
+                            <option value="10">10:00</option>
+                            <option value="11">11:00</option>
+                            <option value="12">12:00</option>
+                            <option value="13">13:00</option>
+                            <option value="14">14:00</option>
+                            <option value="15">15:00</option>
+                            <option value="16">16:00</option>
+                            <option value="17">17:00</option>
+                            <option value="18">18:00</option>
+                            <option value="19">19:00</option>
+                            <option value="20">20:00</option>
+                        </select>
+                    </div>
+                    <button id="removeLesson" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Ders Sil</button>
+                </div>
+
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-semibold mb-2">Haftalık İşlemler</h3>
+                    <div class="mb-2">
+                        <p class="text-sm text-gray-600 mb-2">Pazar günü sistem otomatik olarak sıfırlanacaktır.</p>
+                        <button id="resetWeek" class="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition">Şimdi Sıfırla</button>
+                        <p class="text-xs text-gray-500 mt-2">Sadece rezervasyonları sıfırlar, ders saatleri kalır</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rezervasyon Tabloları -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- 1. Kort -->
+            <div class="bg-white p-4 rounded-lg shadow-lg">
+                <h2 class="text-xl font-bold mb-4 text-center text-indigo-800">1. Kort Rezervasyonları</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-gray-200">
+                                <th class="border p-2">Saat</th>
+                                <th class="border p-2">Pzt</th>
+                                <th class="border p-2">Sal</th>
+                                <th class="border p-2">Çar</th>
+                                <th class="border p-2">Per</th>
+                                <th class="border p-2">Cum</th>
+                                <th class="border p-2">Cmt</th>
+                                <th class="border p-2">Paz</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kort1Table">
+                            <!-- JavaScript ile doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. Kort -->
+            <div class="bg-white p-4 rounded-lg shadow-lg">
+                <h2 class="text-xl font-bold mb-4 text-center text-indigo-800">2. Kort Rezervasyonları</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-200">
+                                <th class="border p-2">Saat</th>
+                                <th class="border p-2">Pzt</th>
+                                <th class="border p-2">Sal</th>
+                                <th class="border p-2">Çar</th>
+                                <th class="border p-2">Per</th>
+                                <th class="border p-2">Cum</th>
+                                <th class="border p-2">Cmt</th>
+                                <th class="border p-2">Paz</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kort2Table">
+                            <!-- JavaScript ile doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rezervasyon Bilgilendirme -->
+        <div class="mt-8 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+            <h3 class="font-semibold text-yellow-800 mb-2">Rezervasyon İşlemleri</h3>
+            <p class="text-yellow-700">Boş saatlerden birini seçerek kulüp yönetimini arayıp rezervasyon yaptırabilirsiniz. Yönetici girişi yaparak ders saatlerini düzenleyebilir veya rezervasyon yapabilirsiniz.</p>
+            <div class="flex items-center mt-2">
+                <div class="w-4 h-4 bg-green-200 mr-2"></div>
+                <span class="text-sm mr-4">Boş</span>
+                <div class="w-4 h-4 bg-blue-200 mr-2"></div>
+                <span class="text-sm mr-4">Ders Saati</span>
+                <div class="w-4 h-4 bg-red-200 mr-2"></div>
+                <span class="text-sm">Dolu</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+    apiKey: "AIzaSyBUGvYnnhHokHZQ92l7fAZ0WzFa1nGMJF4",
+    authDomain: "ondo-kort-takip-deneme.firebaseapp.com",
+    projectId: "ondo-kort-takip-deneme",
+    storageBucket: "ondo-kort-takip-deneme.firebasestorage.app",
+    messagingSenderId: "763428349563",
+    appId: "1:763428349563:web:95e7851140045e1215a4de"
+  };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Veri Yapıları
+        let reservations = {
+            kort1: Array(7).fill().map(() => Array(13).fill(0)), // 0: boş, 1: dolu, 2: ders
+            kort2: Array(7).fill().map(() => Array(13).fill(0))
+        };
+
+        // Sabit kullanıcı bilgileri
+        const adminCredentials = {
+            username: "admin",
+            password: "tenis123"
+        };
+
+        // Haftanın günleri
+        const days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+
+        // Sayfa yüklendiğinde
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tabloları oluştur
+            generateTables();
+            
+            // Yerel depolamadan verileri yükle
+            loadFromLocalStorage();
+            
+            // Her Pazar gece yarısı sıfırlama kontrolü
+            checkWeeklyReset();
+            
+            // Event listener'ları ayarla
+            setupEventListeners();
+        });
+
+        // Tabloları oluşturma fonksiyonu
+        function generateTables() {
+            const kort1Table = document.getElementById('kort1Table');
+            const kort2Table = document.getElementById('kort2Table');
+            
+            kort1Table.innerHTML = '';
+            kort2Table.innerHTML = '';
+            
+            // 08:00 - 20:00 arası saatler için
+            for(let hour = 8; hour <= 20; hour++) {
+                const hourText = `${hour}:00 - ${hour+1}:00`;
+                
+                // Kort 1 için satır oluştur
+                const row1 = document.createElement('tr');
+                row1.innerHTML = `<td class="border p-2 font-medium">${hourText}</td>`;
+                
+                // Kort 2 için satır oluştur
+                const row2 = document.createElement('tr');
+                row2.innerHTML = `<td class="border p-2 font-medium">${hourText}</td>`;
+                
+                // Her gün için hücre ekle
+                for(let day = 0; day < 7; day++) {
+                    // Kort 1 hücresi
+                    const cell1 = document.createElement('td');
+                    cell1.className = 'border p-2 text-center';
+                    cell1.dataset.kort = '1';
+                    cell1.dataset.day = day;
+                    cell1.dataset.hour = hour;
+                    
+                    // Kort 2 hücresi
+                    const cell2 = document.createElement('td');
+                    cell2.className = 'border p-2 text-center';
+                    cell2.dataset.kort = '2';
+                    cell2.dataset.day = day;
+                    cell2.dataset.hour = hour;
+                    
+                    // Duruma göre class ekle
+                    if(reservations.kort1[day][hour-8] === 1) {
+                        cell1.classList.add('booked-slot');
+                        cell1.textContent = 'Dolu';
+                    } else if(reservations.kort1[day][hour-8] === 2) {
+                        cell1.classList.add('lesson-slot');
+                        cell1.textContent = 'Ders';
+                    } else {
+                        cell1.classList.add('empty-slot');
+                        cell1.textContent = 'Boş';
+                        cell1.addEventListener('click', showBookingInfo);
+                    }
+                    
+                    if(reservations.kort2[day][hour-8] === 1) {
+                        cell2.classList.add('booked-slot');
+                        cell2.textContent = 'Dolu';
+                    } else if(reservations.kort2[day][hour-8] === 2) {
+                        cell2.classList.add('lesson-slot');
+                        cell2.textContent = 'Ders';
+                    } else {
+                        cell2.classList.add('empty-slot');
+                        cell2.textContent = 'Boş';
+                        cell2.addEventListener('click', showBookingInfo);
+                    }
+                    
+                    row1.appendChild(cell1);
+                    row2.appendChild(cell2);
+                }
+                
+                kort1Table.appendChild(row1);
+                kort2Table.appendChild(row2);
+            }
+        }
+
+        // Rezervasyon bilgisi göster
+        function showBookingInfo(e) {
+            const kort = e.target.dataset.kort;
+            const day = parseInt(e.target.dataset.day);
+            const hour = parseInt(e.target.dataset.hour);
+            
+            const dayName = days[day];
+            const timeRange = `${hour}:00 - ${hour+1}:00`;
+            
+            alert(`Rezervasyon yapmak için kulüp yönetimini arayın.\n\nSeçilen: ${kort}. Kort, ${dayName}, ${timeRange}\n\nRezervasyon için iletişim: 0XXX XXX XX XX`);
+        }
+
+        // Event listener'ları ayarla
+        function setupEventListeners() {
+            // Giriş butonu
+            document.getElementById('loginBtn').addEventListener('click', function() {
+                document.getElementById('loginModal').classList.remove('hidden');
+            });
+            
+            // Giriş iptal
+            document.getElementById('cancelLogin').addEventListener('click', function() {
+                document.getElementById('loginModal').classList.add('hidden');
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+            });
+            
+            // Giriş onay
+            document.getElementById('confirmLogin').addEventListener('click', function() {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                if(username === adminCredentials.username && password === adminCredentials.password) {
+                    document.getElementById('loginModal').classList.add('hidden');
+                    document.getElementById('adminPanel').classList.remove('hidden');
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                    
+                    // Admin giriş yaptığında tüm boş slotlara tıklanabilir özellik ekle
+                    enableAdminBooking();
+                } else {
+                    alert('Hatalı kullanıcı adı veya şifre!');
+                }
+            });
+            
+            // Ders ekle
+            document.getElementById('addLesson').addEventListener('click', function() {
+                const kort = document.getElementById('lessonKort').value;
+                const day = parseInt(document.getElementById('lessonDay').value);
+                const hour = parseInt(document.getElementById('lessonTime').value);
+                
+                if(kort === '1') {
+                    if(reservations.kort1[day][hour-8] === 0) {
+                        reservations.kort1[day][hour-8] = 2;
+                    } else {
+                        alert('Bu saat zaten dolu veya ders saati olarak ayarlanmış!');
+                    }
+                } else {
+                    if(reservations.kort2[day][hour-8] === 0) {
+                        reservations.kort2[day][hour-8] = 2;
+                    } else {
+                        alert('Bu saat zaten dolu veya ders saati olarak ayarlanmış!');
+                    }
+                }
+                
+                generateTables();
+                saveToLocalStorage();
+                enableAdminBooking();
+            });
+            
+            // Ders sil
+            document.getElementById('removeLesson').addEventListener('click', function() {
+                const kort = document.getElementById('removeLessonKort').value;
+                const day = parseInt(document.getElementById('removeLessonDay').value);
+                const hour = parseInt(document.getElementById('removeLessonTime').value);
+                
+                if(kort === '1') {
+                    if(reservations.kort1[day][hour-8] === 2) {
+                        reservations.kort1[day][hour-8] = 0;
+                    } else {
+                        alert('Bu saat ders saati değil!');
+                    }
+                } else {
+                    if(reservations.kort2[day][hour-8] === 2) {
+                        reservations.kort2[day][hour-8] = 0;
+                    } else {
+                        alert('Bu saat ders saati değil!');
+                    }
+                }
+                
+                generateTables();
+                saveToLocalStorage();
+                enableAdminBooking();
+            });
+            
+            // Haftayı sıfırla
+            document.getElementById('resetWeek').addEventListener('click', function() {
+                if(confirm('Tüm rezervasyonlar sıfırlanacak, emin misiniz?\n(Ders saatleri korunacak)')) {
+                    // Sadece dolu saatleri (1) sıfırla, ders saatleri (2) koru
+                    for(let day = 0; day < 7; day++) {
+                        for(let hour = 0; hour < 13; hour++) {
+                            if(reservations.kort1[day][hour] === 1) {
+                                reservations.kort1[day][hour] = 0;
+                            }
+                            if(reservations.kort2[day][hour] === 1) {
+                                reservations.kort2[day][hour] = 0;
+                            }
+                        }
+                    }
+                    
+                    // Geçerli tarihi kaydet
+                    localStorage.setItem('lastReset', new Date().toISOString());
+                    
+                    generateTables();
+                    saveToLocalStorage();
+                    enableAdminBooking();
+                    alert('Haftalık rezervasyonlar sıfırlandı!');
+                }
+            });
+        }
+
+        // Admin giriş yaptığında boş saatlere rezervasyon yapma yetkisi ver
+        function enableAdminBooking() {
+            const emptySlots = document.querySelectorAll('.empty-slot');
+            
+            emptySlots.forEach(slot => {
+                slot.removeEventListener('click', showBookingInfo);
+                slot.addEventListener('click', function() {
+                    const kort = this.dataset.kort;
+                    const day = parseInt(this.dataset.day);
+                    const hour = parseInt(this.dataset.hour);
+                    
+                    if(confirm(`Rezervasyon yapmak istediğinize emin misiniz?\n${kort}. Kort, ${days[day]}, ${hour}:00 - ${hour+1}:00`)) {
+                        if(kort === '1') {
+                            reservations.kort1[day][hour-8] = 1;
+                        } else {
+                            reservations.kort2[day][hour-8] = 1;
+                        }
+                        
+                        this.classList.remove('empty-slot');
+                        this.classList.add('booked-slot');
+                        this.textContent = 'Dolu';
+                        this.removeEventListener('click', arguments.callee);
+                        
+                        saveToLocalStorage();
+                    }
+                });
+            });
+        }
+
+        // Firebase'e kaydet
+        async function saveToFirebase() {
+            try {
+                await db.collection('reservations').doc('courtData').set(reservations);
+                await db.collection('system').doc('lastReset').set({ 
+                    timestamp: new Date().toISOString() 
+                });
+            } catch (error) {
+                console.error("Firebase kayıt hatası:", error);
+            }
+        }
+
+        // Firebase'den yükle
+        async function loadFromFirebase() {
+            try {
+                const doc = await db.collection('reservations').doc('courtData').get();
+                if (doc.exists) {
+                    reservations = doc.data();
+                }
+                
+                // Son sıfırlama tarihini kontrol et
+                const resetDoc = await db.collection('system').doc('lastReset').get();
+                if (resetDoc.exists && shouldResetWeek(resetDoc.data().timestamp)) {
+                    resetWeek(true);
+                }
+                
+                generateTables();
+            } catch (error) {
+                console.error("Firebase yükleme hatası:", error);
+            }
+        }
+
+        // Haftalık sıfırlama kontrolü
+        function checkWeeklyReset() {
+            const lastReset = localStorage.getItem('lastReset');
+            const now = new Date();
+            
+            if(lastReset) {
+                const lastResetDate = new Date(lastReset);
+                const resetDay = lastResetDate.getDay(); // 0: Pazar
+                const currentDay = now.getDay();
+                
+                // Pazar günü ve son sıfırlama bir önceki hafta ise
+                if(currentDay === 0 && (now - lastResetDate) > 7 * 24 * 60 * 60 * 1000) {
+                    // Pazar gece yarısında otomatik sıfırla
+                    for(let day = 0; day < 7; day++) {
+                        for(let hour = 0; hour < 13; hour++) {
+                            if(reservations.kort1[day][hour] === 1) {
+                                reservations.kort1[day][hour] = 0;
+                            }
+                            if(reservations.kort2[day][hour] === 1) {
+                                reservations.kort2[day][hour] = 0;
+                            }
+                        }
+                    }
+                    
+                    localStorage.setItem('lastReset', now.toISOString());
+                    saveToLocalStorage();
+                    generateTables();
+                }
+            } else {
+                // İlk defa çalışıyorsa, bugünün tarihini kaydet
+                localStorage.setItem('lastReset', now.toISOString());
+            }
+        }
+    </script>
+</body>
+</html>
+
